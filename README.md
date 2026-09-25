@@ -1,70 +1,89 @@
-# jsonld-graph-check — validador grátis e de código aberto de schema JSON-LD
+**English** · [Português (Brasil)](README.pt-BR.md)
 
-`jsonld-graph-check` é um validador gratuito, de código aberto, para a
-integridade de um `@graph` de JSON-LD: `@id` ausente ou duplicado,
-referência que aponta para um nó que não existe no grafo, e nó isolado sem
-nenhuma ligação com o resto da estrutura. Confere também a paridade mínima
-de `FAQPage` com as perguntas que ela deveria enumerar.
+# jsonld-graph-check
 
-## Por que validar o grafo, não só a sintaxe
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)
 
-Um validador de sintaxe JSON confirma que o arquivo é um JSON válido. Isso
-não garante que o grafo faz sentido como estrutura de entidades ligadas. Um
-`@graph` bem montado (`Organization`, `Person`, `WebPage`, `Article`,
-`FAQPage` todos ligados por `@id`) ajuda um sistema de IA a confirmar quem
-é a entidade por trás da página. Um `@graph` fragmentado — nós soltos sem
-`isPartOf`/`mainEntity` amarrando tudo à entidade principal — costuma
-aparecer no Rich Results Test do Google como cards desconectados, e essa
-falta de amarração enfraquece a confirmação de entidade.
+`jsonld-graph-check` is a free, open source validator for the integrity
+of a JSON-LD `@graph`: missing or duplicate `@id`, references that point
+to a node that does not exist in the graph, and isolated nodes with no
+link to the rest of the structure. It also checks the minimal parity of
+`FAQPage` with the questions it should list. It runs locally, and the
+tool prints its report in Brazilian Portuguese.
 
-## O que a ferramenta verifica
+## Contents
 
-1. **`@id` ausente ou duplicado** — todo nó do grafo precisa de um
-   identificador único.
-2. **Referência solta** — toda referência pura (`{"@id": "..."}`) precisa
-   apontar para um nó que existe no mesmo grafo, ou para um domínio
-   externo explicitamente permitido (`schema.org` e `doi.org` por padrão).
-3. **Nó isolado** — nó sem nenhuma referência de entrada nem de saída fica
-   marcado como aviso.
-4. **Paridade de `FAQPage`** — se existir um nó `FAQPage`, confere que
-   `hasPart` ou `mainEntity` apontam para nós `Question` que realmente
-   existem no grafo.
+- [Background](#background)
+- [What it checks](#what-it-checks)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [FAQ](#faq)
+- [Limitations](#limitations)
+- [Methodology](#methodology)
+- [Contributing](#contributing)
+- [Author](#author)
+- [License](#license)
 
-## Instalação
+## Background
 
-Só biblioteca padrão do Python (3.9 ou mais recente). Sem dependência
-externa.
+A JSON syntax validator confirms that the file is valid JSON. That does
+not mean the graph makes sense as a structure of linked entities. A
+well-built `@graph` (`Organization`, `Person`, `WebPage`, `Article`,
+`FAQPage`, all linked by `@id`) helps an AI system confirm who the entity
+behind the page is. A fragmented `@graph` (loose nodes with no
+`isPartOf` or `mainEntity` tying them to the main entity) often shows up
+in Google's Rich Results Test as disconnected cards, and that lack of
+linking weakens entity confirmation.
+
+## What it checks
+
+1. **Missing or duplicate `@id`.** Every node in the graph needs a unique
+   identifier.
+2. **Dangling references.** Every bare reference (`{"@id": "..."}`) must
+   point to a node that exists in the same graph, or to an explicitly
+   allowed external domain (`schema.org` and `doi.org` by default).
+3. **Isolated nodes.** A node with no incoming and no outgoing reference
+   is flagged as a warning.
+4. **`FAQPage` parity.** If there is a `FAQPage` node, it checks that
+   `hasPart` or `mainEntity` point to `Question` nodes that actually exist
+   in the graph.
+
+## Requirements
+
+Python 3.9 or newer. Standard library only, no external dependencies.
+
+## Installation
 
 ```bash
-git clone https://github.com/lucasferrazseo/jsonld-graph-check.git
+git clone https://github.com/LucasFerrazSEO/jsonld-graph-check.git
 cd jsonld-graph-check
 ```
 
-## Como usar, passo a passo
+## Usage
 
-**1. Rode contra um arquivo HTML renderizado.** A ferramenta extrai
-automaticamente os blocos `<script type="application/ld+json">`:
+**1. Run it on a rendered HTML file.** The tool extracts the
+`<script type="application/ld+json">` blocks automatically.
 
 ```bash
 python jsonld_graph_check.py pagina.html
 ```
 
-**2. Ou aponte direto para um `.json`** com o JSON-LD, se já tiver
-exportado:
+**2. Or point it straight at a `.json` file** with the JSON-LD, if you
+already exported it.
 
 ```bash
 python jsonld_graph_check.py schema.json
 ```
 
-**3. Passe vários arquivos de uma vez**, por exemplo todas as páginas de
-um diretório:
+**3. Pass several files at once**, for example every page in a folder.
 
 ```bash
 python jsonld_graph_check.py *.html
 ```
 
-**4. Leia o relatório.** Exemplo de saída real, de um grafo com problema
-proposital:
+**4. Read the report.** A real output example, from a graph with a
+deliberate problem:
 
 ```
 === jsonld-graph-check: 1 grafo(s) em 1 arquivo(s) ===
@@ -76,55 +95,60 @@ ERROS 2 | AVISOS 2
   AVISO [schema.json] nó possivelmente isolado: https://exemplo.com/#orfao (tipo Thing)
 ```
 
-ERRO é problema estrutural real; AVISO pode ser proposital (uma entidade
-autocontida, por exemplo).
+ERRO (error) is a real structural problem. AVISO (warning) may be
+intentional (a self-contained entity, for example).
 
-**5. Libere domínios externos extras**, se seu grafo referencia entidade
-fora do seu próprio site:
+**5. Allow extra external domains** if your graph references an entity
+outside your own site. The flag can be repeated.
 
 ```bash
 python jsonld_graph_check.py pagina.html --permitir-externo https://minhaempresa.com
 ```
 
-**6. Use em CI/CD** antes de todo deploy: código de saída 1 se houver
-qualquer erro (não conta aviso).
+**6. Use it in CI/CD** before every deploy. The exit code is 1 when there
+is any error (warnings do not count).
 
-## Perguntas frequentes
+## FAQ
 
-**jsonld-graph-check é realmente grátis?**
-Sim, código aberto sob licença MIT.
+**Is jsonld-graph-check really free?**
+Yes. It is open source under the MIT license.
 
-**Isso substitui o Rich Results Test do Google?**
-Não. Este valida estrutura e integridade referencial do grafo — não valida
-contra as regras de rich results de um tipo específico (`Product`,
-`Article`...) nem contra o vocabulário oficial do schema.org. Use os dois:
-esta ferramenta antes do deploy, o Rich Results Test depois.
+**Does it replace Google's Rich Results Test?**
+No. This tool validates the structure and referential integrity of the
+graph. It does not validate against the rich result rules of a specific
+type (`Product`, `Article`...) or against the official schema.org
+vocabulary. Use both: this tool before the deploy, the Rich Results Test
+after it.
 
-**Preciso de internet para usar?**
-Não. A ferramenta só lê o arquivo local; nenhum dado sai da sua máquina.
+**Do I need an internet connection?**
+No. The tool only reads the local file. No data leaves your machine.
 
-**Funciona com Microdata ou RDFa, além de JSON-LD?**
-Não, só JSON-LD, que é o formato que o Google recomenda hoje.
+**Does it work with Microdata or RDFa, besides JSON-LD?**
+No, only JSON-LD, which is the format Google recommends today.
 
-## Limitações
+## Limitations
 
-Valida estrutura e integridade referencial do grafo, não a validade contra
-um tipo específico de schema.org nem o vocabulário oficial. Um "nó
-isolado" é aviso, não erro: algumas entidades (`DefinedTerm` de glossário
-externo, por exemplo) são legitimamente autocontidas.
+It validates the structure and referential integrity of the graph, not
+validity against a specific schema.org type or the official vocabulary.
+An "isolated node" is a warning, not an error: some entities (a
+`DefinedTerm` from an external glossary, for example) are legitimately
+self-contained.
 
-## Método e origem
+## Methodology
 
-Generalização de um script de validação usado internamente no
-[lucasferraz.com](https://lucasferraz.com) para conferir o `@graph` de
-Pessoa/entidade antes de todo deploy de schema, sem a lógica específica de
-página-casa e `@id` fixos daquele site.
+This is a generalization of a validation script used internally on
+[lucasferraz.com](https://lucasferraz.com) to check the Person and entity
+`@graph` before every schema deploy, without the logic specific to that
+site's home page and fixed `@id` values.
 
-## Autor
+## Contributing
 
-[Lucas Ferraz](https://lucasferraz.com) — especialista em SEO, criação de
-sites e SEO para IA, fundador da [Lucas Ferraz SEO](https://lucasferrazseo.com).
+Bug reports and suggestions are welcome through [GitHub Issues](https://github.com/LucasFerrazSEO/jsonld-graph-check/issues).
 
-## Licença
+## Author
 
-MIT — ver [LICENSE](LICENSE).
+[Lucas Ferraz](https://lucasferraz.com) is an SEO, website development and Generative Engine Optimization specialist and the founder of [Lucas Ferraz SEO](https://lucasferrazseo.com).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
